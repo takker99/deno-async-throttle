@@ -64,11 +64,9 @@ export function throttle<T extends unknown[], U>(
       await sleep(interval);
     }
     if (!queue || running) return;
-    running = true;
     const executed = execute(callback, queue);
     queue = undefined;
     await executed;
-    running = false;
     await runNext();
   };
   const skipAndPush = (
@@ -87,9 +85,7 @@ export function throttle<T extends unknown[], U>(
       }
       (async () => {
         if (immediate) {
-          running = true;
           await execute(callback, queue);
-          running = false;
         } else {
           skipAndPush(queue);
         }
