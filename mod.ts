@@ -40,7 +40,7 @@ type Queue<T, U> = {
 export function throttle<T extends unknown[], U>(
   callback: (..._args: T) => Promise<U>,
   options?: Options,
-) {
+): (...parameters: T) => Promise<Result<U>> {
   const { interval = 0, immediate = true } = options ?? {};
   let queue: Queue<T, U> | undefined;
   let running = false;
