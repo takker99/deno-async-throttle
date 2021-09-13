@@ -33,7 +33,7 @@ describe("one-by-one", () => {
     });
   });
 
-  describe("with arguemnts", function () {
+  describe("with arguemnts", () => {
     let count = 0;
     const throttled = throttle(async (...increments: number[]) => {
       if (increments.length > 0) count += increments.reduce((a, b) => a + b);
