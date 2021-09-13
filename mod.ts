@@ -15,7 +15,7 @@ export interface Options {
 }
 /** Result of `throttle` */
 export interface Result<U> {
-  /** whether the provided function is executed **/
+  /** whether the provided function is executed */
   executed: boolean;
   /** the result of the provided function
   *
