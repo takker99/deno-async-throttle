@@ -44,16 +44,31 @@ export function throttle<T extends unknown[], U>(
   const { interval = 0, immediate = true } = options ?? {};
   let queue: Queue<T, U> | undefined;
   let running = false;
+
+  const execute = async <T extends unknown[], U>(
+    callback: (..._args: T) => Promise<U>,
+    { parameters, resolve, reject }: Queue<T, U>,
+  ) => {
+    running = true;
+    try {
+      const result = await callback(...parameters);
+      running = false;
+      resolve({ result, executed: true });
+    } catch (e) {
+      running = false;
+      reject(e);
+    }
+  };
   const runNext = async () => {
     if (interval > 0) {
       await sleep(interval);
     }
-    if (!queue) {
-      running = false;
-      return;
-    }
-    executeAsyncFunction(callback, queue);
+    if (!queue || running) return;
+    running = true;
+    const executed = execute(callback, queue);
     queue = undefined;
+    await executed;
+    running = false;
     await runNext();
   };
   const skipPrevFunction = (
@@ -62,6 +77,7 @@ export function throttle<T extends unknown[], U>(
     queue?.resolve?.({ executed: false });
     queue = next;
   };
+
   return (...parameters: T) =>
     new Promise<Result<U>>((resolve, reject) => {
       const queue = { parameters, resolve, reject };
@@ -69,25 +85,15 @@ export function throttle<T extends unknown[], U>(
         skipPrevFunction(queue);
         return;
       }
-      running = true;
       (async () => {
         if (immediate) {
-          await executeAsyncFunction(callback, queue);
+          running = true;
+          await execute(callback, queue);
+          running = false;
         } else {
           skipPrevFunction(queue);
         }
         await runNext();
       })();
     });
-}
-
-async function executeAsyncFunction<T extends unknown[], U>(
-  callback: (..._args: T) => Promise<U>,
-  { parameters, resolve, reject }: Queue<T, U>,
-) {
-  try {
-    resolve({ result: await callback(...parameters), executed: true });
-  } catch (e) {
-    reject(e);
-  }
 }
