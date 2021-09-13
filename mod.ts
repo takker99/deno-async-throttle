@@ -71,7 +71,7 @@ export function throttle<T extends unknown[], U>(
     running = false;
     await runNext();
   };
-  const skipPrevFunction = (
+  const skipAndPush = (
     next: Queue<T, U>,
   ) => {
     queue?.resolve?.({ executed: false });
@@ -82,7 +82,7 @@ export function throttle<T extends unknown[], U>(
     new Promise<Result<U>>((resolve, reject) => {
       const queue = { parameters, resolve, reject };
       if (running) {
-        skipPrevFunction(queue);
+        skipAndPush(queue);
         return;
       }
       (async () => {
@@ -91,7 +91,7 @@ export function throttle<T extends unknown[], U>(
           await execute(callback, queue);
           running = false;
         } else {
-          skipPrevFunction(queue);
+          skipAndPush(queue);
         }
         await runNext();
       })();
