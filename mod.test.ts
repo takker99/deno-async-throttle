@@ -61,6 +61,38 @@ describe("without arguments", () => {
     expect(results[1]).toEqual({ executed: false });
     expect(results[2]).toEqual({ executed: true, result: "done2" });
   });
+
+  it("suppress and await", async () => {
+    results[0] = countUp(); // run
+    expect(count).toBe(0);
+    results[1] = countUp(); // skip
+    expect(count).toBe(0);
+    results[2] = countUp(); // run
+    expect(count).toBe(0);
+    expect(await results[0]).toEqual({ executed: true, result: "done1" });
+    expect(count).toBe(1);
+    expect(await results[1]).toEqual({ executed: false });
+    expect(count).toBe(1);
+    expect(await results[2]).toEqual({ executed: true, result: "done2" });
+    expect(count).toBe(2);
+
+    results[3] = countUp(); // run
+    expect(count).toBe(2);
+    results[4] = countUp(); // skip
+    expect(count).toBe(2);
+    results[5] = countUp(); // skip
+    expect(count).toBe(2);
+    results[6] = countUp(); // run
+    expect(count).toBe(2);
+    expect(await results[3]).toEqual({ executed: true, result: "done3" });
+    expect(count).toBe(3);
+    expect(await results[4]).toEqual({ executed: false });
+    expect(count).toBe(3);
+    expect(await results[5]).toEqual({ executed: false });
+    expect(count).toBe(3);
+    expect(await results[6]).toEqual({ executed: true, result: "done4" });
+    expect(count).toBe(4);
+  });
 });
 describe("with arguemnts", () => {
   let count = 0;
