@@ -33,6 +33,7 @@ describe("without arguments", () => {
         expect(count).toBe(2);
         results[2] = await countUp(); // run
         expect(count).toBe(3);
+
         expect(results[0]).toEqual({ executed: true, result: "done1" });
         expect(results[1]).toEqual({ executed: true, result: "done2" });
         expect(results[2]).toEqual({ executed: true, result: "done3" });
@@ -47,6 +48,7 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[3] = countUp(); // run
         expect(count).toBe(0);
+
         expect(await results[0]).toEqual({ executed: true, result: "done1" });
         expect(count).toBe(1);
         expect(await results[1]).toEqual({ executed: false });
@@ -65,6 +67,7 @@ describe("without arguments", () => {
           countUp(), // run
         ]);
         expect(count).toBe(2);
+
         expect(results[0]).toEqual({ executed: true, result: "done1" });
         expect(results[1]).toEqual({ executed: false });
         expect(results[2]).toEqual({ executed: false });
@@ -124,6 +127,7 @@ describe("without arguments", () => {
         expect(count).toBe(2);
         results[2] = await countUp(); // run
         expect(count).toBe(3);
+
         expect(results[0]).toEqual({ executed: true, result: "done1" });
         expect(results[1]).toEqual({ executed: true, result: "done2" });
         expect(results[2]).toEqual({ executed: true, result: "done3" });
@@ -138,6 +142,7 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[3] = countUp(); // run
         expect(count).toBe(0);
+
         expect(await results[0]).toEqual({ executed: false });
         expect(count).toBe(0);
         expect(await results[1]).toEqual({ executed: false });
@@ -156,6 +161,7 @@ describe("without arguments", () => {
           countUp(), // run
         ]);
         expect(count).toBe(1);
+
         expect(results[0]).toEqual({ executed: false });
         expect(results[1]).toEqual({ executed: false });
         expect(results[2]).toEqual({ executed: false });
@@ -218,6 +224,7 @@ describe("without arguments", () => {
         expect(count).toBe(2);
         results[2] = await countUp(); // run
         expect(count).toBe(3);
+
         expect(results[0]).toEqual({ executed: true, result: "done1" });
         expect(results[1]).toEqual({ executed: true, result: "done2" });
         expect(results[2]).toEqual({ executed: true, result: "done3" });
@@ -251,6 +258,7 @@ describe("without arguments", () => {
           countUp(), // run
         ]);
         expect(count).toBe(2);
+
         expect(results[0]).toEqual({ executed: true, result: "done1" });
         expect(results[1]).toEqual({ executed: false });
         expect(results[2]).toEqual({ executed: false });
@@ -310,6 +318,7 @@ describe("without arguments", () => {
         expect(count).toBe(2);
         results[2] = await countUp(); // run
         expect(count).toBe(3);
+
         expect(results[0]).toEqual({ executed: true, result: "done1" });
         expect(results[1]).toEqual({ executed: true, result: "done2" });
         expect(results[2]).toEqual({ executed: true, result: "done3" });
@@ -324,6 +333,7 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[3] = countUp(); // run
         expect(count).toBe(0);
+
         expect(await results[0]).toEqual({ executed: false });
         expect(count).toBe(0);
         expect(await results[1]).toEqual({ executed: false });
@@ -342,6 +352,7 @@ describe("without arguments", () => {
           countUp(), // run
         ]);
         expect(count).toBe(1);
+
         expect(results[0]).toEqual({ executed: false });
         expect(results[1]).toEqual({ executed: false });
         expect(results[2]).toEqual({ executed: false });
@@ -413,6 +424,7 @@ describe("with arguemnts", () => {
       expect(count).toBe(45);
       results[3] = await add(); // run
       expect(count).toBe(45);
+
       expect(results[0]).toEqual({ executed: true, result: "done1" });
       expect(results[1]).toEqual({ executed: true, result: "done6" });
       expect(results[2]).toEqual({ executed: true, result: "done45" });
@@ -447,6 +459,7 @@ describe("with arguemnts", () => {
         add(5), // run
       ]);
       expect(count).toBe(11);
+
       expect(results[0]).toEqual({ executed: true, result: "done6" });
       expect(results[1]).toEqual({ executed: false });
       expect(results[2]).toEqual({ executed: false });
