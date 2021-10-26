@@ -46,7 +46,7 @@ export function throttle<T extends unknown[], U>(
   let running = false;
 
   const runNext = async () => {
-    if (running) return;
+    if (running || !queue) return;
     running = true;
     if (!immediate) {
       await sleep(interval);
