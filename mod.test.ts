@@ -460,10 +460,10 @@ describe("with arguemnts", () => {
       expect(count).toBe(0);
       results[2] = add(5, 1); // skip
       expect(count).toBe(0);
-      results[3] = add(3); // skip
+      results[3] = add(3); // run
       expect(count).toBe(0);
       await results[0];
-      results[4] = add(4, 5, 6); // run
+      results[4] = add(4, 5, 6); // skip
       expect(count).toBe(1);
       results[5] = add(7); // skip
       expect(count).toBe(1);
@@ -480,18 +480,18 @@ describe("with arguemnts", () => {
       expect(count).toBe(1);
       expect(await results[2]).toEqual({ executed: false });
       expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[4]).toEqual({ executed: true, result: "done16" });
-      expect(count).toBe(16);
+      expect(await results[3]).toEqual({ executed: true, result: "done4" });
+      expect(count).toBe(4);
+      expect(await results[4]).toEqual({ executed: false });
+      expect(count).toBe(4);
       expect(await results[5]).toEqual({ executed: false });
-      expect(count).toBe(16);
+      expect(count).toBe(4);
       expect(await results[6]).toEqual({ executed: false });
-      expect(count).toBe(16);
+      expect(count).toBe(4);
       expect(await results[7]).toEqual({ executed: false });
+      expect(count).toBe(4);
+      expect(await results[8]).toEqual({ executed: true, result: "done16" });
       expect(count).toBe(16);
-      expect(await results[8]).toEqual({ executed: true, result: "done28" });
-      expect(count).toBe(28);
     });
   });
 });
