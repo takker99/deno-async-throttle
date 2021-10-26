@@ -78,11 +78,11 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[2] = countUp(); // skip
         expect(count).toBe(0);
-        results[3] = countUp(); // skip
+        results[3] = countUp(); // run
         expect(count).toBe(0);
         await results[0];
         expect(count).toBe(1);
-        results[4] = countUp(); // run
+        results[4] = countUp(); // skip
         expect(count).toBe(1);
         results[5] = countUp(); // skip
         expect(count).toBe(1);
