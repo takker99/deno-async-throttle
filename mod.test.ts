@@ -12,6 +12,13 @@ import {
 describe("without arguments", () => {
   let count = 0;
   let results = [] as (Promise<Result<string>>[] | Result<string>[]);
+  let countUp = (): Promise<Result<string>> =>
+    Promise.resolve({ executed: false });
+  const targetFunc = async () => {
+    await sleep(Math.floor(Math.random() * 50));
+    count += 1;
+    return `done${count}`;
+  };
 
   beforeEach(() => {
     count = 0;
@@ -20,10 +27,8 @@ describe("without arguments", () => {
 
   describe("without interval", () => {
     describe("immediate: true", () => {
-      const countUp = throttle(async () => {
-        await sleep(Math.floor(Math.random() * 50));
-        count += 1;
-        return `done${count}`;
+      beforeEach(() => {
+        countUp = throttle(targetFunc);
       });
 
       it("acts as normal async-await", async () => {
@@ -114,11 +119,9 @@ describe("without arguments", () => {
     });
 
     describe("immediate: false", () => {
-      const countUp = throttle(async () => {
-        await sleep(Math.floor(Math.random() * 50));
-        count += 1;
-        return `done${count}`;
-      }, { immediate: false });
+      beforeEach(() => {
+        countUp = throttle(targetFunc, { immediate: false });
+      });
 
       it("acts as normal async-await", async () => {
         results[0] = await countUp(); // run
@@ -209,13 +212,15 @@ describe("without arguments", () => {
   });
 
   describe("with interval", () => {
-    const interval = Math.floor(Math.random() * 500);
+    let interval = 100;
+    beforeEach(() => {
+      interval = Math.floor(Math.random() * 400 + 100);
+    });
+
     describe("immediate: true", () => {
-      const countUp = throttle(async () => {
-        await sleep(Math.floor(Math.random() * 50));
-        count += 1;
-        return `done${count}`;
-      }, { interval });
+      beforeEach(() => {
+        countUp = throttle(targetFunc, { interval });
+      });
 
       it("acts as normal async-await", async () => {
         results[0] = await countUp(); // run
@@ -305,11 +310,9 @@ describe("without arguments", () => {
     });
 
     describe("immediate: false", () => {
-      const countUp = throttle(async () => {
-        await sleep(Math.floor(Math.random() * 50));
-        count += 1;
-        return `done${count}`;
-      }, { interval, immediate: false });
+      beforeEach(() => {
+        countUp = throttle(targetFunc, { interval, immediate: false });
+      });
 
       it("acts as normal async-await", async () => {
         results[0] = await countUp(); // run
@@ -402,18 +405,24 @@ describe("without arguments", () => {
 describe("with arguemnts", () => {
   let count = 0;
   let results = [] as (Promise<Result<string>>[] | Result<string>[]);
+  let add = (..._args: number[]): Promise<Result<string>> =>
+    Promise.resolve({ executed: false });
+  const targetFunc = async (...increments: number[]) => {
+    await sleep(Math.floor(Math.random() * 50));
+    count += increments.reduce((a, b) => a + b, 0);
+    return `done${count}`;
+  };
 
   beforeEach(() => {
     count = 0;
     results = [];
   });
 
-  describe("immediate: true", () => {
-    const add = throttle(async (...increments: number[]) => {
-      await sleep(Math.floor(Math.random() * 50));
-      count += increments.reduce((a, b) => a + b, 0);
-      return `done${count}`;
-    });
+  describe("without interval", () => {
+    describe("immediate: true", () => {
+      beforeEach(() => {
+        add = throttle(targetFunc);
+      });
 
     it("acts as normal async-await", async () => {
       results[0] = await add(1); // run
