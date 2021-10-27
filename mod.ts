@@ -1,17 +1,10 @@
-import { sleep } from "./sleep.ts";
-
 /** Options for `throttle` */
 export interface Options {
-  /** the amount of milliseconds to wait for after the previous function is finished
+  /** If it's set to `true` and queue isn't empty, the function is executed again at the end.
    *
-   * the default value is `0` (no interval)
+   * default: `false`
    */
-  interval?: number;
-  /** whether not to delay executing the first function for `interval`
-   *
-   * default: `true`
-   */
-  immediate?: boolean;
+  trailing: boolean;
 }
 /** Result of `throttle` */
 export interface Result<U> {
@@ -41,35 +34,34 @@ export function throttle<T extends unknown[], U>(
   callback: (..._args: T) => Promise<U>,
   options?: Options,
 ): (...parameters: T) => Promise<Result<U>> {
-  const { interval = 0, immediate = true } = options ?? {};
+  const { trailing = false } = options ?? {};
   let queue: Queue<T, U> | undefined;
   let running = false;
+  const cancel = () => queue?.resolve?.({ executed: false });
 
   const runNext = async () => {
-    if (running || !queue) return;
-    running = true;
-    if (!immediate) {
-      await sleep(interval);
-    }
-    if (!queue) {
-      running = false;
+    if (running || !queue) {
       return;
     }
+    running = true;
     const { parameters, resolve, reject } = queue;
     queue = undefined;
     try {
       const result = await callback(...parameters);
 
-      if (immediate) {
-        await sleep(interval);
-      }
       running = false;
       resolve({ result, executed: true });
     } catch (e) {
       running = false;
       reject(e);
+    } finally {
+      if (trailing) {
+        await runNext();
+      } else {
+        cancel();
+        await Promise.resolve();
+      }
     }
-    await runNext();
   };
 
   return (...parameters: T) =>
