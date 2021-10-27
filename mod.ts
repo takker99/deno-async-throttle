@@ -1,26 +1,19 @@
-import { sleep } from "./sleep.ts";
-
 /** Options for `throttle` */
 export interface Options {
-  /** the amount of milliseconds to wait for after the previous function is finished
-  *
-  * the default value is `0` (no interval)
-  */
-  interval?: number;
-  /** whether not to delay executing the first function for `interval`
+  /** If it's set to `true` and queue isn't empty, the function is executed again at the end.
    *
-   * default: `true`
+   * default: `false`
    */
-  immediate?: boolean;
+  trailing: boolean;
 }
 /** Result of `throttle` */
 export interface Result<U> {
   /** whether the provided function is executed */
   executed: boolean;
   /** the result of the provided function
-  *
-  * If the function is not executed, it is set to `undefined`
-  */
+   *
+   * If the function is not executed, it is set to `undefined`
+   */
   result?: U;
 }
 
@@ -41,55 +34,40 @@ export function throttle<T extends unknown[], U>(
   callback: (..._args: T) => Promise<U>,
   options?: Options,
 ): (...parameters: T) => Promise<Result<U>> {
-  const { interval = 0, immediate = true } = options ?? {};
+  const { trailing = false } = options ?? {};
   let queue: Queue<T, U> | undefined;
   let running = false;
+  const cancel = () => queue?.resolve?.({ executed: false });
 
-  const execute = async <T extends unknown[], U>(
-    callback: (..._args: T) => Promise<U>,
-    { parameters, resolve, reject }: Queue<T, U>,
-  ) => {
+  const runNext = async () => {
+    if (running || !queue) {
+      return;
+    }
     running = true;
+    const { parameters, resolve, reject } = queue;
+    queue = undefined;
     try {
       const result = await callback(...parameters);
+
       running = false;
       resolve({ result, executed: true });
     } catch (e) {
       running = false;
       reject(e);
+    } finally {
+      if (trailing) {
+        await runNext();
+      } else {
+        cancel();
+        await Promise.resolve();
+      }
     }
-  };
-  const runNext = async () => {
-    if (interval > 0) {
-      await sleep(interval);
-    }
-    if (!queue || running) return;
-    const executed = execute(callback, queue);
-    queue = undefined;
-    await executed;
-    await runNext();
-  };
-  const skipAndPush = (
-    next: Queue<T, U>,
-  ) => {
-    queue?.resolve?.({ executed: false });
-    queue = next;
   };
 
   return (...parameters: T) =>
     new Promise<Result<U>>((resolve, reject) => {
-      const queue = { parameters, resolve, reject };
-      if (running) {
-        skipAndPush(queue);
-        return;
-      }
-      (async () => {
-        if (immediate) {
-          await execute(callback, queue);
-        } else {
-          skipAndPush(queue);
-        }
-        await runNext();
-      })();
+      queue?.resolve?.({ executed: false });
+      queue = { parameters, resolve, reject };
+      runNext();
     });
 }
