@@ -51,17 +51,7 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[2] = countUp(); // skip
         expect(count).toBe(0);
-        await Promise.resolve(); // any other microtask
-        results[3] = countUp(); // skip
-        expect(count).toBe(0);
-        results[4] = countUp(); // skip
-        expect(count).toBe(0);
-        await sleep(0); // any other macrotask
-        results[5] = countUp(); // skip
-        expect(count).toBe(0);
-        results[6] = countUp(); // skip
-        expect(count).toBe(0);
-        results[7] = countUp(); // run
+        results[3] = countUp(); // run
         expect(count).toBe(0);
 
         expect(await results[0]).toEqual({ executed: true, result: "done1" });
@@ -70,15 +60,7 @@ describe("without arguments", () => {
         expect(count).toBe(1);
         expect(await results[2]).toEqual({ executed: false });
         expect(count).toBe(1);
-        expect(await results[3]).toEqual({ executed: false });
-        expect(count).toBe(1);
-        expect(await results[4]).toEqual({ executed: false });
-        expect(count).toBe(1);
-        expect(await results[5]).toEqual({ executed: false });
-        expect(count).toBe(1);
-        expect(await results[6]).toEqual({ executed: false });
-        expect(count).toBe(1);
-        expect(await results[7]).toEqual({ executed: true, result: "done2" });
+        expect(await results[3]).toEqual({ executed: true, result: "done2" });
         expect(count).toBe(2);
       });
 
@@ -161,17 +143,7 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[2] = countUp(); // skip
         expect(count).toBe(0);
-        await Promise.resolve(); // any other microtask
-        results[3] = countUp(); // skip
-        expect(count).toBe(0);
-        results[4] = countUp(); // run
-        expect(count).toBe(0);
-        await sleep(0); // any other macrotask
-        results[5] = countUp(); // skip
-        expect(count).toBe(0);
-        results[6] = countUp(); // skip
-        expect(count).toBe(0);
-        results[7] = countUp(); // run
+        results[3] = countUp(); // run
         expect(count).toBe(0);
 
         expect(await results[0]).toEqual({ executed: false });
@@ -180,16 +152,8 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         expect(await results[2]).toEqual({ executed: false });
         expect(count).toBe(0);
-        expect(await results[3]).toEqual({ executed: false });
-        expect(count).toBe(0);
-        expect(await results[4]).toEqual({ executed: true, result: "done1" });
+        expect(await results[3]).toEqual({ executed: true, result: "done1" });
         expect(count).toBe(1);
-        expect(await results[5]).toEqual({ executed: false });
-        expect(count).toBe(1);
-        expect(await results[6]).toEqual({ executed: false });
-        expect(count).toBe(1);
-        expect(await results[7]).toEqual({ executed: true, result: "done2" });
-        expect(count).toBe(2);
       });
 
       it("suppress multiple calls [Promise.all()]", async () => {
@@ -391,18 +355,18 @@ describe("without arguments", () => {
         expect(count).toBe(0);
         results[3] = countUp(); // run
         expect(count).toBe(0);
-        await sleep(interval / 2);
+        await sleep(interval);
         results[4] = countUp(); // skip
-        expect(count).toBe(0);
+        expect(count).toBe(1);
         results[5] = countUp(); // run
-        expect(count).toBe(0);
+        expect(count).toBe(1);
 
         expect(await results[0]).toEqual({ executed: false });
-        expect(count).toBe(0);
+        expect(count).toBe(1);
         expect(await results[1]).toEqual({ executed: false });
-        expect(count).toBe(0);
+        expect(count).toBe(1);
         expect(await results[2]).toEqual({ executed: false });
-        expect(count).toBe(0);
+        expect(count).toBe(1);
         expect(await results[3]).toEqual({ executed: true, result: "done1" });
         expect(count).toBe(1);
         expect(await results[4]).toEqual({ executed: false });
