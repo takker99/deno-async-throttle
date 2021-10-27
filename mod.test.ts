@@ -544,6 +544,332 @@ describe("with arguemnts", () => {
         expect(count).toBe(16);
       });
     });
+
+    describe("immediate: false", () => {
+      beforeEach(() => {
+        add = throttle(targetFunc, { immediate: false });
+      });
+
+      it("acts as normal async-await", async () => {
+        results[0] = await add(1); // run
+        expect(count).toBe(1);
+        results[1] = await add(2, 3); // run
+        expect(count).toBe(6);
+        results[2] = await add(4, 5, 6, 7, 8, 9); // run
+        expect(count).toBe(45);
+        results[3] = await add(); // run
+        expect(count).toBe(45);
+
+        expect(results[0]).toEqual({ executed: true, result: "done1" });
+        expect(results[1]).toEqual({ executed: true, result: "done6" });
+        expect(results[2]).toEqual({ executed: true, result: "done45" });
+        expect(results[3]).toEqual({ executed: true, result: "done45" });
+      });
+
+      it("suppress multiple calls", async () => {
+        results[0] = add(1); // skip
+        expect(count).toBe(0);
+        results[1] = add(2); // skip
+        expect(count).toBe(0);
+        results[2] = add(4); // skip
+        expect(count).toBe(0);
+        results[3] = add(3); // run
+        expect(count).toBe(0);
+
+        expect(await results[0]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[3]).toEqual({ executed: true, result: "done3" });
+        expect(count).toBe(3);
+      });
+
+      it("suppress multiple calls [Promise.all()]", async () => {
+        results = await Promise.all([
+          add(1, 2, 3), // skip
+          add(4), // skip
+          add(6), // skip
+          add(5), // run
+        ]);
+        expect(count).toBe(5);
+
+        expect(results[0]).toEqual({ executed: false });
+        expect(results[1]).toEqual({ executed: false });
+        expect(results[2]).toEqual({ executed: false });
+        expect(results[3]).toEqual({ executed: true, result: "done5" });
+      });
+
+      it("suppress and await", async () => {
+        results[0] = add(1); // skip
+        expect(count).toBe(0);
+        results[1] = add(2); // skip
+        expect(count).toBe(0);
+        results[2] = add(5, 1); // skip
+        expect(count).toBe(0);
+        results[3] = add(3); // run
+        expect(count).toBe(0);
+        await results[3];
+        results[4] = add(4, 5, 6); // skip
+        expect(count).toBe(3);
+        results[5] = add(7); // skip
+        expect(count).toBe(3);
+        results[6] = add(8); // skip
+        expect(count).toBe(3);
+        results[7] = add(9, 10, 11); // skip
+        expect(count).toBe(3);
+        results[8] = add(12); // run
+        expect(count).toBe(3);
+
+        expect(await results[0]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[3]).toEqual({ executed: true, result: "done3" });
+        expect(count).toBe(3);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[5]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[6]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[7]).toEqual({ executed: false });
+        expect(count).toBe(3);
+        expect(await results[8]).toEqual({ executed: true, result: "done15" });
+        expect(count).toBe(15);
+      });
+    });
+  });
+
+  describe("with interval", () => {
+    let interval = 100;
+    beforeEach(() => {
+      interval = Math.floor(Math.random() * 400 + 100);
+    });
+
+    describe("immediate: true", () => {
+      beforeEach(() => {
+        add = throttle(targetFunc, { interval });
+      });
+
+      it("acts as normal async-await", async () => {
+        results[0] = await add(1); // run
+        expect(count).toBe(1);
+        results[1] = await add(2, 3); // run
+        expect(count).toBe(6);
+        results[2] = await add(4, 5, 6, 7, 8, 9); // run
+        expect(count).toBe(45);
+        results[3] = await add(); // run
+        expect(count).toBe(45);
+
+        expect(results[0]).toEqual({ executed: true, result: "done1" });
+        expect(results[1]).toEqual({ executed: true, result: "done6" });
+        expect(results[2]).toEqual({ executed: true, result: "done45" });
+        expect(results[3]).toEqual({ executed: true, result: "done45" });
+      });
+
+      it("suppress multiple calls", async () => {
+        results[0] = add(1); // run
+        expect(count).toBe(0);
+        results[1] = add(2, 4); // skip
+        expect(count).toBe(0);
+        results[2] = add(5); // skip
+        expect(count).toBe(0);
+        await Promise.resolve(); // any other microtask
+        results[3] = add(7); // skip
+        expect(count).toBe(0);
+        results[4] = add(); // skip
+        expect(count).toBe(0);
+        await sleep(interval / 2); // wait for less than `interval`
+        results[5] = add(4, 5, 43); // skip
+        expect(count).toBe(1);
+        results[6] = add(8); // skip
+        expect(count).toBe(1);
+        results[7] = add(2, 3, 4); // run
+        expect(count).toBe(1);
+
+        expect(await results[0]).toEqual({ executed: true, result: "done1" });
+        expect(count).toBe(1);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[3]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[5]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[6]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[7]).toEqual({ executed: true, result: "done10" });
+        expect(count).toBe(10);
+      });
+
+      it("suppress multiple calls [Promise.all()]", async () => {
+        results = await Promise.all([
+          add(1, 2, 3), // run
+          add(4), // skip
+          add(6), // skip
+          add(5), // run
+        ]);
+        expect(count).toBe(11);
+
+        expect(results[0]).toEqual({ executed: true, result: "done6" });
+        expect(results[1]).toEqual({ executed: false });
+        expect(results[2]).toEqual({ executed: false });
+        expect(results[3]).toEqual({ executed: true, result: "done11" });
+      });
+
+      it("suppress and await", async () => {
+        results[0] = add(1); // run
+        expect(count).toBe(0);
+        results[1] = add(2); // skip
+        expect(count).toBe(0);
+        results[2] = add(5, 1); // skip
+        expect(count).toBe(0);
+        results[3] = add(3); // run
+        expect(count).toBe(0);
+        await results[0];
+        results[4] = add(4, 5, 6); // skip
+        expect(count).toBe(1);
+        results[5] = add(7); // skip
+        expect(count).toBe(1);
+        results[6] = add(8); // skip
+        expect(count).toBe(1);
+        results[7] = add(9, 10, 11); // skip
+        expect(count).toBe(1);
+        results[8] = add(12); // run
+        expect(count).toBe(1);
+
+        expect(await results[0]).toEqual({ executed: true, result: "done1" });
+        expect(count).toBe(1);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[3]).toEqual({ executed: true, result: "done4" });
+        expect(count).toBe(4);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(4);
+        expect(await results[5]).toEqual({ executed: false });
+        expect(count).toBe(4);
+        expect(await results[6]).toEqual({ executed: false });
+        expect(count).toBe(4);
+        expect(await results[7]).toEqual({ executed: false });
+        expect(count).toBe(4);
+        expect(await results[8]).toEqual({ executed: true, result: "done16" });
+        expect(count).toBe(16);
+      });
+    });
+
+    describe("immediate: false", () => {
+      beforeEach(() => {
+        add = throttle(targetFunc, { interval, immediate: false });
+      });
+
+      it("acts as normal async-await", async () => {
+        results[0] = await add(1); // run
+        expect(count).toBe(1);
+        results[1] = await add(2, 3); // run
+        expect(count).toBe(6);
+        results[2] = await add(4, 5, 6, 7, 8, 9); // run
+        expect(count).toBe(45);
+        results[3] = await add(); // run
+        expect(count).toBe(45);
+
+        expect(results[0]).toEqual({ executed: true, result: "done1" });
+        expect(results[1]).toEqual({ executed: true, result: "done6" });
+        expect(results[2]).toEqual({ executed: true, result: "done45" });
+        expect(results[3]).toEqual({ executed: true, result: "done45" });
+      });
+
+      it("suppress multiple calls", async () => {
+        results[0] = add(); // skip
+        expect(count).toBe(0);
+        results[1] = add(4, 5, 6); // skip
+        expect(count).toBe(0);
+        await sleep(interval / 2);
+        results[2] = add(4); // skip
+        expect(count).toBe(0);
+        results[3] = add(45); // run
+        expect(count).toBe(0);
+        await sleep(interval / 2);
+        results[4] = add(); // skip
+        expect(count).toBe(0);
+        results[5] = add(4, 5); // run
+        expect(count).toBe(0);
+
+        expect(await results[0]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[3]).toEqual({ executed: true, result: "done45" });
+        expect(count).toBe(45);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(45);
+        expect(await results[5]).toEqual({ executed: true, result: "done54" });
+        expect(count).toBe(54);
+      });
+
+      it("suppress multiple calls [Promise.all()]", async () => {
+        results = await Promise.all([
+          add(1, 2, 3), // skip
+          add(4), // skip
+          add(6), // skip
+          add(5), // run
+        ]);
+        expect(count).toBe(5);
+
+        expect(results[0]).toEqual({ executed: false });
+        expect(results[1]).toEqual({ executed: false });
+        expect(results[2]).toEqual({ executed: false });
+        expect(results[3]).toEqual({ executed: true, result: "done5" });
+      });
+
+      it("suppress and await", async () => {
+        results[0] = add(1); // skip
+        expect(count).toBe(0);
+        results[1] = add(4, 5, 12); // skip
+        expect(count).toBe(0);
+        results[2] = add(34); // skip
+        expect(count).toBe(0);
+        results[3] = add(1, 0); // run
+        expect(count).toBe(0);
+        await results[3];
+        expect(count).toBe(1);
+        results[4] = add(); // skip
+        expect(count).toBe(1);
+        results[5] = add(3433); // skip
+        expect(count).toBe(1);
+        results[6] = add(3, 2, 1); // skip
+        expect(count).toBe(1);
+        results[7] = add(1); // run
+        expect(count).toBe(1);
+
+        expect(await results[0]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[3]).toEqual({ executed: true, result: "done1" });
+        expect(count).toBe(1);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[5]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[6]).toEqual({ executed: false });
+        expect(count).toBe(1);
+        expect(await results[7]).toEqual({ executed: true, result: "done2" });
+        expect(count).toBe(2);
+      });
+    });
   });
 });
 
