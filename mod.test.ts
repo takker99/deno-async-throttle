@@ -437,6 +437,7 @@ describe("with arguemnts", () => {
     Promise.resolve({ executed: false });
   const targetFunc = async (...increments: number[]) => {
     await sleep(Math.floor(Math.random() * 50));
+    if (increments.includes(-1)) throw new Error("-1");
     count += increments.reduce((a, b) => a + b, 0);
     return `done${count}`;
   };
@@ -543,6 +544,26 @@ describe("with arguemnts", () => {
         expect(await results[8]).toEqual({ executed: true, result: "done16" });
         expect(count).toBe(16);
       });
+
+      it("throw error", async () => {
+        results[0] = add(-1); // throw error
+        expect(count).toBe(0);
+        results[1] = add(2); // skip
+        expect(count).toBe(0);
+        results[2] = add(-1); // skip
+        expect(count).toBe(0);
+        results[3] = add(3); // run
+        expect(count).toBe(0);
+
+        expect(results[0]).rejects.toMatch("-1");
+        expect(count).toBe(0);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[3]).toEqual({ executed: true, result: "done3" });
+        expect(count).toBe(3);
+      });
     });
 
     describe("immediate: false", () => {
@@ -640,6 +661,27 @@ describe("with arguemnts", () => {
         expect(count).toBe(3);
         expect(await results[8]).toEqual({ executed: true, result: "done15" });
         expect(count).toBe(15);
+      });
+
+      it("throw error", async () => {
+        results[0] = add(-1); // skip
+        expect(count).toBe(0);
+        results[1] = add(2); // skip
+        expect(count).toBe(0);
+        results[2] = add(-1); // skip
+        expect(count).toBe(0);
+        results[3] = add(-1); // throw error
+        expect(count).toBe(0);
+
+        expect(await results[0]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        await results[3].catch(() => {}); // make sure all promises are settled
+        expect(results[3]).rejects.toMatch("-1");
+        expect(count).toBe(0);
       });
     });
   });
@@ -764,6 +806,36 @@ describe("with arguemnts", () => {
         expect(await results[8]).toEqual({ executed: true, result: "done16" });
         expect(count).toBe(16);
       });
+
+      it("throw error", async () => {
+        results[0] = add(-1); // throw error
+        results[0].catch(() => {});
+        expect(count).toBe(0);
+        results[1] = add(2, 4); // skip
+        expect(count).toBe(0);
+        results[2] = add(5); // skip
+        expect(count).toBe(0);
+        await sleep(interval / 2); // wait for less than `interval`
+        results[3] = add(4, 5, 43); // skip
+        expect(count).toBe(0);
+        results[4] = add(-1); // skip
+        expect(count).toBe(0);
+        results[5] = add(2, 3, 4); // run
+        expect(count).toBe(0);
+
+        expect(results[0]).rejects.toMatch("-1");
+        expect(count).toBe(0);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[3]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[5]).toEqual({ executed: true, result: "done9" });
+        expect(count).toBe(9);
+      });
     });
 
     describe("immediate: false", () => {
@@ -868,6 +940,37 @@ describe("with arguemnts", () => {
         expect(count).toBe(1);
         expect(await results[7]).toEqual({ executed: true, result: "done2" });
         expect(count).toBe(2);
+      });
+
+      it("throw error", async () => {
+        results[0] = add(); // skip
+        expect(count).toBe(0);
+        results[1] = add(4, 5, 6); // skip
+        expect(count).toBe(0);
+        await sleep(interval / 2);
+        results[2] = add(4, -1); // skip
+        expect(count).toBe(0);
+        results[3] = add(-1); // throw error
+        results[3].catch(() => {});
+        expect(count).toBe(0);
+        await sleep(interval / 2);
+        results[4] = add(); // skip
+        expect(count).toBe(0);
+        results[5] = add(4, 5); // run
+        expect(count).toBe(0);
+
+        expect(await results[0]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[1]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[2]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(results[3]).rejects.toMatch("-1");
+        expect(count).toBe(0);
+        expect(await results[4]).toEqual({ executed: false });
+        expect(count).toBe(0);
+        expect(await results[5]).toEqual({ executed: true, result: "done9" });
+        expect(count).toBe(9);
       });
     });
   });
