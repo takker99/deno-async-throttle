@@ -8,459 +8,504 @@ import {
   it,
   run,
 } from "https://deno.land/x/tincan@0.2.2/mod.ts";
+import {
+  assert,
+  assertEquals,
+  assertStrictEquals,
+  assertThrowsAsync,
+} from "https://deno.land/std@0.114.0/testing/asserts.ts";
 
-describe("without arguments", () => {
-  let count = 0;
+Deno.test("without arguments", async (t0) => {
   let results = [] as (Promise<Result<string>>[] | Result<string>[]);
-  let countUp = (): Promise<Result<string>> =>
-    Promise.resolve({ executed: false });
-  const targetFunc = async () => {
-    await sleep(Math.floor(Math.random() * 50));
-    count += 1;
-    return `done${count}`;
+  const makeCountUp = () => {
+    let count = 0;
+    return {
+      show: () => count,
+      countUp: async () => {
+        await sleep(Math.floor(Math.random() * 50));
+        count += 1;
+        return `done${count}`;
+      },
+    };
   };
 
-  beforeEach(() => {
-    count = 0;
-    results = [];
-  });
+  await t0.step("without interval", async (t1) => {
+    await t1.step("trailing: false", async ({ step }) => {
+      await step("acts as normal async-await", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp);
 
-  describe("trailing: false", () => {
-    beforeEach(() => {
-      countUp = throttle(targetFunc);
+        results[0] = await countUp(); // run
+        assertStrictEquals(show(), 1);
+        results[1] = await countUp(); // run
+        assertStrictEquals(show(), 2);
+        results[2] = await countUp(); // run
+        assertStrictEquals(show(), 3);
+
+        assertEquals(results[0], { executed: true, result: "done1" });
+        assertEquals(results[1], { executed: true, result: "done2" });
+        assertEquals(results[2], { executed: true, result: "done3" });
+      });
+
+      await step("suppress multiple calls", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp);
+
+        results[0] = countUp(); // run
+        assertStrictEquals(show(), 0);
+        results[1] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+      });
+
+      await step("suppress multiple calls [Promise.all()]", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp);
+
+        results = await Promise.all([
+          countUp(), // run
+          countUp(), // skip
+          countUp(), // skip
+          countUp(), // skip
+        ]);
+        assertStrictEquals(show(), 1);
+
+        assertEquals(results[0], { executed: true, result: "done1" });
+        assert(!results[1].executed);
+        assert(!results[2].executed);
+        assert(!results[3].executed);
+      });
+
+      await step("suppress and await", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp);
+
+        results[0] = countUp(); // run
+        assertStrictEquals(show(), 0);
+        results[1] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        await results[0];
+        assertStrictEquals(show(), 1);
+        results[4] = countUp(); // run
+        assertStrictEquals(show(), 1);
+        results[5] = countUp(); // skip
+        assertStrictEquals(show(), 1);
+        results[6] = countUp(); // skip
+        assertStrictEquals(show(), 1);
+        results[7] = countUp(); // skip
+        assertStrictEquals(show(), 1);
+
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[3]).executed);
+        assertStrictEquals(show(), 1);
+        assertEquals(await results[4], { executed: true, result: "done2" });
+        assertStrictEquals(show(), 2);
+        assert(!(await results[5]).executed);
+        assertStrictEquals(show(), 2);
+        assert(!(await results[6]).executed);
+        assertStrictEquals(show(), 2);
+        assert(!(await results[7]).executed);
+        assertStrictEquals(show(), 2);
+      });
     });
 
-    it("acts as normal async-await", async () => {
-      results[0] = await countUp(); // run
-      expect(count).toBe(1);
-      results[1] = await countUp(); // run
-      expect(count).toBe(2);
-      results[2] = await countUp(); // run
-      expect(count).toBe(3);
+    await t1.step("trailing: true", async ({ step }) => {
+      await step("acts as normal async-await", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp, { trailing: true });
 
-      expect(results[0]).toEqual({ executed: true, result: "done1" });
-      expect(results[1]).toEqual({ executed: true, result: "done2" });
-      expect(results[2]).toEqual({ executed: true, result: "done3" });
-    });
+        results[0] = await countUp(); // run
+        assertStrictEquals(show(), 1);
+        results[1] = await countUp(); // run
+        assertStrictEquals(show(), 2);
+        results[2] = await countUp(); // run
+        assertStrictEquals(show(), 3);
 
-    it("suppress multiple calls", async () => {
-      results[0] = countUp(); // run
-      expect(count).toBe(0);
-      results[1] = countUp(); // skip
-      expect(count).toBe(0);
-      results[2] = countUp(); // skip
-      expect(count).toBe(0);
-      results[3] = countUp(); // skip
-      expect(count).toBe(0);
+        assertEquals(results[0], { executed: true, result: "done1" });
+        assertEquals(results[1], { executed: true, result: "done2" });
+        assertEquals(results[2], { executed: true, result: "done3" });
+      });
 
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: false });
-      expect(count).toBe(1);
-    });
+      await step("suppress multiple calls", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp, { trailing: true });
 
-    it("suppress multiple calls [Promise.all()]", async () => {
-      results = await Promise.all([
-        countUp(), // run
-        countUp(), // skip
-        countUp(), // skip
-        countUp(), // skip
-      ]);
-      expect(count).toBe(1);
+        results[0] = countUp(); // run
+        assertStrictEquals(show(), 0);
+        results[1] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = countUp(); // run
+        assertStrictEquals(show(), 0);
 
-      expect(results[0]).toEqual({ executed: true, result: "done1" });
-      expect(results[1]).toEqual({ executed: false });
-      expect(results[2]).toEqual({ executed: false });
-      expect(results[3]).toEqual({ executed: false });
-    });
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assertEquals(await results[2], { executed: true, result: "done2" });
+        assertStrictEquals(show(), 2);
+      });
 
-    it("suppress and await", async () => {
-      results[0] = countUp(); // run
-      expect(count).toBe(0);
-      results[1] = countUp(); // skip
-      expect(count).toBe(0);
-      results[2] = countUp(); // skip
-      expect(count).toBe(0);
-      results[3] = countUp(); // skip
-      expect(count).toBe(0);
-      await results[0];
-      expect(count).toBe(1);
-      results[4] = countUp(); // run
-      expect(count).toBe(1);
-      results[5] = countUp(); // skip
-      expect(count).toBe(1);
-      results[6] = countUp(); // skip
-      expect(count).toBe(1);
-      results[7] = countUp(); // skip
-      expect(count).toBe(1);
+      await step("suppress multiple calls [Promise.all()]", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp, { trailing: true });
 
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[4]).toEqual({ executed: true, result: "done2" });
-      expect(count).toBe(2);
-      expect(await results[5]).toEqual({ executed: false });
-      expect(count).toBe(2);
-      expect(await results[6]).toEqual({ executed: false });
-      expect(count).toBe(2);
-      expect(await results[7]).toEqual({ executed: false });
-      expect(count).toBe(2);
-    });
-  });
+        results = await Promise.all([
+          countUp(), // run
+          countUp(), // skip
+          countUp(), // skip
+          countUp(), // run
+        ]);
+        assertStrictEquals(show(), 2);
 
-  describe("trailing: true", () => {
-    beforeEach(() => {
-      countUp = throttle(targetFunc, { trailing: true });
-    });
+        assertEquals(results[0], { executed: true, result: "done1" });
+        assert(!results[1].executed);
+        assert(!results[2].executed);
+        assertEquals(results[3], { executed: true, result: "done2" });
+      });
 
-    it("acts as normal async-await", async () => {
-      results[0] = await countUp(); // run
-      expect(count).toBe(1);
-      results[1] = await countUp(); // run
-      expect(count).toBe(2);
-      results[2] = await countUp(); // run
-      expect(count).toBe(3);
+      await step("suppress and await", async () => {
+        const { show, ...rest } = makeCountUp();
+        const countUp = throttle(rest.countUp, { trailing: true });
 
-      expect(results[0]).toEqual({ executed: true, result: "done1" });
-      expect(results[1]).toEqual({ executed: true, result: "done2" });
-      expect(results[2]).toEqual({ executed: true, result: "done3" });
-    });
+        results[0] = countUp(); // run
+        assertStrictEquals(show(), 0);
+        results[1] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = countUp(); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = countUp(); // run
+        assertStrictEquals(show(), 0);
+        await results[0];
+        assertStrictEquals(show(), 1);
+        results[4] = countUp(); // skip
+        assertStrictEquals(show(), 1);
+        results[5] = countUp(); // skip
+        assertStrictEquals(show(), 1);
+        results[6] = countUp(); // skip
+        assertStrictEquals(show(), 1);
+        results[7] = countUp(); // run
+        assertStrictEquals(show(), 1);
 
-    it("suppress multiple calls", async () => {
-      results[0] = countUp(); // run
-      expect(count).toBe(0);
-      results[1] = countUp(); // skip
-      expect(count).toBe(0);
-      results[2] = countUp(); // skip
-      expect(count).toBe(0);
-      results[3] = countUp(); // run
-      expect(count).toBe(0);
-
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: true, result: "done2" });
-      expect(count).toBe(2);
-    });
-
-    it("suppress multiple calls [Promise.all()]", async () => {
-      results = await Promise.all([
-        countUp(), // run
-        countUp(), // skip
-        countUp(), // skip
-        countUp(), // run
-      ]);
-      expect(count).toBe(2);
-
-      expect(results[0]).toEqual({ executed: true, result: "done1" });
-      expect(results[1]).toEqual({ executed: false });
-      expect(results[2]).toEqual({ executed: false });
-      expect(results[3]).toEqual({ executed: true, result: "done2" });
-    });
-
-    it("suppress and await", async () => {
-      results[0] = countUp(); // run
-      expect(count).toBe(0);
-      results[1] = countUp(); // skip
-      expect(count).toBe(0);
-      results[2] = countUp(); // skip
-      expect(count).toBe(0);
-      results[3] = countUp(); // run
-      expect(count).toBe(0);
-      await results[0];
-      expect(count).toBe(1);
-      results[4] = countUp(); // skip
-      expect(count).toBe(1);
-      results[5] = countUp(); // skip
-      expect(count).toBe(1);
-      results[6] = countUp(); // skip
-      expect(count).toBe(1);
-      results[7] = countUp(); // run
-      expect(count).toBe(1);
-
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: true, result: "done2" });
-      expect(count).toBe(2);
-      expect(await results[4]).toEqual({ executed: false });
-      expect(count).toBe(2);
-      expect(await results[5]).toEqual({ executed: false });
-      expect(count).toBe(2);
-      expect(await results[6]).toEqual({ executed: false });
-      expect(count).toBe(2);
-      expect(await results[7]).toEqual({ executed: true, result: "done3" });
-      expect(count).toBe(3);
-    });
-  });
-});
-describe("with arguemnts", () => {
-  let count = 0;
-  let results = [] as (Promise<Result<string>>[] | Result<string>[]);
-  let add = (..._args: number[]): Promise<Result<string>> =>
-    Promise.resolve({ executed: false });
-  const targetFunc = async (...increments: number[]) => {
-    await sleep(Math.floor(Math.random() * 50));
-    if (increments.includes(-1)) throw new Error("-1");
-    count += increments.reduce((a, b) => a + b, 0);
-    return `done${count}`;
-  };
-
-  beforeEach(() => {
-    count = 0;
-    results = [];
-  });
-
-  describe("trailing: false", () => {
-    beforeEach(() => {
-      add = throttle(targetFunc);
-    });
-
-    it("acts as normal async-await", async () => {
-      results[0] = await add(1); // run
-      expect(count).toBe(1);
-      results[1] = await add(2, 3); // run
-      expect(count).toBe(6);
-      results[2] = await add(4, 5, 6, 7, 8, 9); // run
-      expect(count).toBe(45);
-      results[3] = await add(); // run
-      expect(count).toBe(45);
-
-      expect(results[0]).toEqual({ executed: true, result: "done1" });
-      expect(results[1]).toEqual({ executed: true, result: "done6" });
-      expect(results[2]).toEqual({ executed: true, result: "done45" });
-      expect(results[3]).toEqual({ executed: true, result: "done45" });
-    });
-
-    it("suppress multiple calls", async () => {
-      results[0] = add(1); // run
-      expect(count).toBe(0);
-      results[1] = add(2); // skip
-      expect(count).toBe(0);
-      results[2] = add(4); // skip
-      expect(count).toBe(0);
-      results[3] = add(3); // skip
-      expect(count).toBe(0);
-
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: false });
-      expect(count).toBe(1);
-    });
-
-    it("suppress multiple calls [Promise.all()]", async () => {
-      results = await Promise.all([
-        add(1, 2, 3), // run
-        add(4), // skip
-        add(6), // skip
-        add(5), // skip
-      ]);
-      expect(count).toBe(6);
-
-      expect(results[0]).toEqual({ executed: true, result: "done6" });
-      expect(results[1]).toEqual({ executed: false });
-      expect(results[2]).toEqual({ executed: false });
-      expect(results[3]).toEqual({ executed: false });
-    });
-
-    it("suppress and await", async () => {
-      results[0] = add(1); // run
-      expect(count).toBe(0);
-      results[1] = add(2); // skip
-      expect(count).toBe(0);
-      results[2] = add(5, 1); // skip
-      expect(count).toBe(0);
-      results[3] = add(3); // skip
-      expect(count).toBe(0);
-      await results[0];
-      results[4] = add(4, 5, 6); // run
-      expect(count).toBe(1);
-      results[5] = add(7); // skip
-      expect(count).toBe(1);
-      results[6] = add(8); // skip
-      expect(count).toBe(1);
-      results[7] = add(9, 10, 11); // skip
-      expect(count).toBe(1);
-      results[8] = add(12); // skip
-      expect(count).toBe(1);
-
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[4]).toEqual({ executed: true, result: "done16" });
-      expect(count).toBe(16);
-      expect(await results[5]).toEqual({ executed: false });
-      expect(count).toBe(16);
-      expect(await results[6]).toEqual({ executed: false });
-      expect(count).toBe(16);
-      expect(await results[7]).toEqual({ executed: false });
-      expect(count).toBe(16);
-      expect(await results[8]).toEqual({ executed: false });
-      expect(count).toBe(16);
-    });
-
-    it("throw error", async () => {
-      results[0] = add(-1); // throw error
-      expect(count).toBe(0);
-      results[1] = add(2); // skip
-      expect(count).toBe(0);
-      results[2] = add(-1); // skip
-      expect(count).toBe(0);
-      results[3] = add(3); // skip
-      expect(count).toBe(0);
-
-      expect(results[0]).rejects.toMatch("-1");
-      expect(count).toBe(0);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(0);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(0);
-      expect(await results[3]).toEqual({ executed: false });
-      expect(count).toBe(0);
-    });
-  });
-
-  describe("trailing: true", () => {
-    beforeEach(() => {
-      add = throttle(targetFunc, { trailing: true });
-    });
-
-    it("acts as normal async-await", async () => {
-      results[0] = await add(1); // run
-      expect(count).toBe(1);
-      results[1] = await add(2, 3); // run
-      expect(count).toBe(6);
-      results[2] = await add(4, 5, 6, 7, 8, 9); // run
-      expect(count).toBe(45);
-      results[3] = await add(); // run
-      expect(count).toBe(45);
-
-      expect(results[0]).toEqual({ executed: true, result: "done1" });
-      expect(results[1]).toEqual({ executed: true, result: "done6" });
-      expect(results[2]).toEqual({ executed: true, result: "done45" });
-      expect(results[3]).toEqual({ executed: true, result: "done45" });
-    });
-
-    it("suppress multiple calls", async () => {
-      results[0] = add(1); // run
-      expect(count).toBe(0);
-      results[1] = add(2); // skip
-      expect(count).toBe(0);
-      results[2] = add(4); // skip
-      expect(count).toBe(0);
-      results[3] = add(3); // run
-      expect(count).toBe(0);
-
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: true, result: "done4" });
-      expect(count).toBe(4);
-    });
-
-    it("suppress multiple calls [Promise.all()]", async () => {
-      results = await Promise.all([
-        add(1, 2, 3), // run
-        add(4), // skip
-        add(6), // skip
-        add(5), // run
-      ]);
-      expect(count).toBe(11);
-
-      expect(results[0]).toEqual({ executed: true, result: "done6" });
-      expect(results[1]).toEqual({ executed: false });
-      expect(results[2]).toEqual({ executed: false });
-      expect(results[3]).toEqual({ executed: true, result: "done11" });
-    });
-
-    it("suppress and await", async () => {
-      results[0] = add(1); // run
-      expect(count).toBe(0);
-      results[1] = add(2); // skip
-      expect(count).toBe(0);
-      results[2] = add(5, 1); // skip
-      expect(count).toBe(0);
-      results[3] = add(3); // run
-      expect(count).toBe(0);
-      await results[0];
-      results[4] = add(4, 5, 6); // skip
-      expect(count).toBe(1);
-      results[5] = add(7); // skip
-      expect(count).toBe(1);
-      results[6] = add(8); // skip
-      expect(count).toBe(1);
-      results[7] = add(9, 10, 11); // skip
-      expect(count).toBe(1);
-      results[8] = add(12); // run
-      expect(count).toBe(1);
-
-      expect(await results[0]).toEqual({ executed: true, result: "done1" });
-      expect(count).toBe(1);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(1);
-      expect(await results[3]).toEqual({ executed: true, result: "done4" });
-      expect(count).toBe(4);
-      expect(await results[4]).toEqual({ executed: false });
-      expect(count).toBe(4);
-      expect(await results[5]).toEqual({ executed: false });
-      expect(count).toBe(4);
-      expect(await results[6]).toEqual({ executed: false });
-      expect(count).toBe(4);
-      expect(await results[7]).toEqual({ executed: false });
-      expect(count).toBe(4);
-      expect(await results[8]).toEqual({ executed: true, result: "done16" });
-      expect(count).toBe(16);
-    });
-
-    it("throw error", async () => {
-      results[0] = add(-1); // throw error
-      expect(count).toBe(0);
-      results[1] = add(2); // skip
-      expect(count).toBe(0);
-      results[2] = add(-1); // skip
-      expect(count).toBe(0);
-      results[3] = add(3); // run
-      expect(count).toBe(0);
-
-      expect(results[0]).rejects.toMatch("-1");
-      expect(count).toBe(0);
-      expect(await results[1]).toEqual({ executed: false });
-      expect(count).toBe(0);
-      expect(await results[2]).toEqual({ executed: false });
-      expect(count).toBe(0);
-      expect(await results[3]).toEqual({ executed: true, result: "done3" });
-      expect(count).toBe(3);
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+        assertEquals(await results[3], { executed: true, result: "done2" });
+        assertStrictEquals(show(), 2);
+        assert(!(await results[4]).executed);
+        assertStrictEquals(show(), 2);
+        assert(!(await results[5]).executed);
+        assertStrictEquals(show(), 2);
+        assert(!(await results[6]).executed);
+        assertStrictEquals(show(), 2);
+        assertEquals(await results[7], { executed: true, result: "done3" });
+        assertStrictEquals(show(), 3);
+      });
     });
   });
 });
 
-run();
+Deno.test("with arguments", async (t0) => {
+  let results = [] as (Promise<Result<string>>[] | Result<string>[]);
+  const makeAdd = () => {
+    let count = 0;
+    return {
+      show: () => count,
+      add: async (...increments: number[]) => {
+        await sleep(Math.floor(Math.random() * 50));
+        if (increments.includes(-1)) throw new Error("-1");
+        count += increments.reduce((a, b) => a + b, 0);
+        return `done${count}`;
+      },
+    };
+  };
+
+  await t0.step("without interval", async (t1) => {
+    await t1.step("trailing: false", async ({ step }) => {
+      await step("acts as normal async-await", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add);
+
+        results[0] = await add(1); // run
+        assertStrictEquals(show(), 1);
+        results[1] = await add(2, 3); // run
+        assertStrictEquals(show(), 6);
+        results[2] = await add(4, 5, 6, 7, 8, 9); // run
+        assertStrictEquals(show(), 45);
+        results[3] = await add(); // run
+        assertStrictEquals(show(), 45);
+
+        assertEquals(results[0], { executed: true, result: "done1" });
+        assertEquals(results[1], { executed: true, result: "done6" });
+        assertEquals(results[2], { executed: true, result: "done45" });
+        assertEquals(results[3], { executed: true, result: "done45" });
+      });
+
+      await step("suppress multiple calls", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add);
+
+        results[0] = add(1); // run
+        assertStrictEquals(show(), 0);
+        results[1] = add(2); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = add(4); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = add(3); // skip
+        assertStrictEquals(show(), 0);
+
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[3]).executed);
+        assertStrictEquals(show(), 1);
+      });
+
+      await step("suppress multiple calls [Promise.all()]", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add);
+
+        results = await Promise.all([
+          add(1, 2, 3), // run
+          add(4), // skip
+          add(6), // skip
+          add(5), // skip
+        ]);
+        assertStrictEquals(show(), 6);
+
+        assertEquals(results[0], { executed: true, result: "done6" });
+        assert(!results[1].executed);
+        assert(!results[2].executed);
+        assert(!results[3].executed);
+      });
+
+      await step("suppress and await", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add);
+
+        results[0] = add(1); // run
+        assertStrictEquals(show(), 0);
+        results[1] = add(2); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = add(5, 1); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = add(3); // skip
+        assertStrictEquals(show(), 0);
+        await results[0];
+        assertStrictEquals(show(), 1);
+        results[4] = add(4, 5, 6); // run
+        assertStrictEquals(show(), 1);
+        results[5] = add(7); // skip
+        assertStrictEquals(show(), 1);
+        results[6] = add(8); // skip
+        assertStrictEquals(show(), 1);
+        results[7] = add(9, 10, 11); // skip
+        assertStrictEquals(show(), 1);
+        results[8] = add(12); // skip
+        assertStrictEquals(show(), 1);
+
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[3]).executed);
+        assertStrictEquals(show(), 1);
+        assertEquals(await results[4], { executed: true, result: "done16" });
+        assertStrictEquals(show(), 16);
+        assert(!(await results[5]).executed);
+        assertStrictEquals(show(), 16);
+        assert(!(await results[6]).executed);
+        assertStrictEquals(show(), 16);
+        assert(!(await results[7]).executed);
+        assertStrictEquals(show(), 16);
+        assert(!(await results[8]).executed);
+        assertStrictEquals(show(), 16);
+      });
+
+      await step("throw error", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add);
+
+        results[0] = add(-1); // throw error
+        assertStrictEquals(show(), 0);
+        results[1] = add(2); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = add(-1); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = add(3); // skip
+        assertStrictEquals(show(), 0);
+
+        assertThrowsAsync(
+          () => results[0] as Promise<Result<string>>,
+          Error,
+          "-1",
+        );
+        assertStrictEquals(show(), 0);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 0);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 0);
+        assert(!(await results[3]).executed);
+        assertStrictEquals(show(), 0);
+      });
+    });
+
+    await t1.step("trailing: true", async ({ step }) => {
+      await step("acts as normal async-await", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add, { trailing: true });
+
+        results[0] = await add(1); // run
+        assertStrictEquals(show(), 1);
+        results[1] = await add(2, 3); // run
+        assertStrictEquals(show(), 6);
+        results[2] = await add(4, 5, 6, 7, 8, 9); // run
+        assertStrictEquals(show(), 45);
+        results[3] = await add(); // run
+        assertStrictEquals(show(), 45);
+
+        assertEquals(results[0], { executed: true, result: "done1" });
+        assertEquals(results[1], { executed: true, result: "done6" });
+        assertEquals(results[2], { executed: true, result: "done45" });
+        assertEquals(results[3], { executed: true, result: "done45" });
+      });
+
+      await step("suppress multiple calls", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add, { trailing: true });
+
+        results[0] = add(1); // run
+        assertStrictEquals(show(), 0);
+        results[1] = add(2); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = add(4); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = add(3); // run
+        assertStrictEquals(show(), 0);
+
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+        assertEquals(await results[3], { executed: true, result: "done4" });
+        assertStrictEquals(show(), 4);
+      });
+
+      await step("suppress multiple calls [Promise.all()]", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add, { trailing: true });
+
+        results = await Promise.all([
+          add(1, 2, 3), // run
+          add(4), // skip
+          add(6), // skip
+          add(5), // run
+        ]);
+        assertStrictEquals(show(), 11);
+
+        assertEquals(results[0], { executed: true, result: "done6" });
+        assert(!results[1].executed);
+        assert(!results[2].executed);
+        assertEquals(results[3], { executed: true, result: "done11" });
+      });
+
+      await step("suppress and await", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add, { trailing: true });
+
+        results[0] = add(1); // run
+        assertStrictEquals(show(), 0);
+        results[1] = add(2); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = add(5, 1); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = add(3); // run
+        assertStrictEquals(show(), 0);
+        await results[0];
+        assertStrictEquals(show(), 1);
+        results[4] = add(4, 5, 6); // skip
+        assertStrictEquals(show(), 1);
+        results[5] = add(7); // skip
+        assertStrictEquals(show(), 1);
+        results[6] = add(8); // skip
+        assertStrictEquals(show(), 1);
+        results[7] = add(9, 10, 11); // skip
+        assertStrictEquals(show(), 1);
+        results[8] = add(12); // run
+        assertStrictEquals(show(), 1);
+
+        assertEquals(await results[0], { executed: true, result: "done1" });
+        assertStrictEquals(show(), 1);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 1);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 1);
+        assertEquals(await results[3], { executed: true, result: "done4" });
+        assertStrictEquals(show(), 4);
+        assert(!(await results[4]).executed);
+        assertStrictEquals(show(), 4);
+        assert(!(await results[5]).executed);
+        assertStrictEquals(show(), 4);
+        assert(!(await results[6]).executed);
+        assertStrictEquals(show(), 4);
+        assert(!(await results[7]).executed);
+        assertStrictEquals(show(), 4);
+        assertEquals(await results[8], { executed: true, result: "done16" });
+        assertStrictEquals(show(), 16);
+      });
+
+      await step("throw error", async () => {
+        const { show, ...rest } = makeAdd();
+        const add = throttle(rest.add, { trailing: true });
+
+        results[0] = add(-1); // throw error
+        assertStrictEquals(show(), 0);
+        results[1] = add(2); // skip
+        assertStrictEquals(show(), 0);
+        results[2] = add(-1); // skip
+        assertStrictEquals(show(), 0);
+        results[3] = add(3); // run
+        assertStrictEquals(show(), 0);
+
+        assertThrowsAsync(
+          () => results[0] as Promise<Result<string>>,
+          Error,
+          "-1",
+        );
+        assertStrictEquals(show(), 0);
+        assert(!(await results[1]).executed);
+        assertStrictEquals(show(), 0);
+        assert(!(await results[2]).executed);
+        assertStrictEquals(show(), 0);
+        assertEquals(await results[3], { executed: true, result: "done3" });
+        assertStrictEquals(show(), 3);
+      });
+    });
+  });
+});
