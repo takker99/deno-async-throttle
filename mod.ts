@@ -1,10 +1,14 @@
+import { sleep } from "./sleep.ts";
+
 /** Options for `throttle` */
 export interface Options {
   /** If it's set to `true` and queue isn't empty, the function is executed again at the end.
    *
    * default: `false`
    */
-  trailing: boolean;
+  trailing?: boolean;
+
+  interval?: number;
 }
 /** Result of `throttle` */
 export interface Result<U> {
@@ -34,18 +38,28 @@ export function throttle<T extends unknown[], U>(
   callback: (..._args: T) => Promise<U>,
   options?: Options,
 ): (...parameters: T) => Promise<Result<U>> {
-  const { trailing = false } = options ?? {};
+  const { trailing = false, interval = 0 } = options ?? {};
   let queue: Queue<T, U> | undefined;
   let running = false;
-  const cancel = () => queue?.resolve?.({ executed: false });
+  const push = (data?: Queue<T, U>) => {
+    queue?.resolve?.({ executed: false });
+    queue = data;
+  };
+  const pop = (): Queue<T, U> => {
+    const { ...data } = queue;
+    queue = undefined;
+    return data;
+  };
 
   const runNext = async () => {
     if (running || !queue) {
       return;
     }
     running = true;
-    const { parameters, resolve, reject } = queue;
-    queue = undefined;
+    if (interval > 0) {
+      await sleep(interval);
+    }
+    const { parameters, resolve, reject } = pop();
     try {
       const result = await callback(...parameters);
 
@@ -58,7 +72,7 @@ export function throttle<T extends unknown[], U>(
       if (trailing) {
         await runNext();
       } else {
-        cancel();
+        push();
         await Promise.resolve();
       }
     }
@@ -66,8 +80,7 @@ export function throttle<T extends unknown[], U>(
 
   return (...parameters: T) =>
     new Promise<Result<U>>((resolve, reject) => {
-      queue?.resolve?.({ executed: false });
-      queue = { parameters, resolve, reject };
+      push({ parameters, resolve, reject });
       runNext();
     });
 }
