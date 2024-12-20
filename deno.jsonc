@@ -2,7 +2,8 @@
   "name": "@takker/throttle",
   "version": "0.0.0",
   "imports": {
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@1",
+    "@takker/throttle": "./mod.ts"
   },
   "exports": "./mod.ts",
   "tasks": {
