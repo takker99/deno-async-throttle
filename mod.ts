@@ -16,6 +16,28 @@ export interface ThrottledFn<Args extends readonly unknown[], R> {
    * or `undefined` if any function is not currently throttled.
    */
   get ready(): Promise<void> | undefined;
+
+  /**
+   * Clears the throttle interval and calls all queued functions as discarded.
+   *
+   * @example
+   * ```ts
+   * import { assertEquals, assertRejects } from "@std/assert";
+   *
+   * const throttledFn = throttle(
+   *   (i: number, state: ThrottledState) => `${i}-${state}`,
+   *   { maxQueued: 3, interval: 100000 },
+   * );
+   *
+   * const promises = Array.from({ length: 4 }).map((_, i) => throttledFn(i));
+   * throttledFn.clear();
+   * assertEquals(await promises[0], "0-immediate");
+   * assertEquals(await promises[1], "1-discarded");
+   * assertEquals(await promises[2], "2-discarded");
+   * assertEquals(await promises[3], "3-discarded");
+   * ```
+   */
+  clear(): void;
 }
 
 /** Options for {@linkcode throttle} */
@@ -97,19 +119,27 @@ export const throttle = <const Args extends readonly unknown[], const R>(
 ): ThrottledFn<Args, R> => {
   const interval = options?.interval ?? 0;
   const maxQueued = options?.maxQueued ?? Infinity;
-  let timer: Promise<void> | undefined;
+  let ready: Promise<void> | undefined;
+  let clear: () => void;
   const queue: ((state: ThrottledState) => void)[] = [];
 
   const throttledFn: ThrottledFn<Args, R> = ((...args) => {
-    if (!timer) {
-      timer = (async () => {
+    if (!ready) {
+      ready = (async () => {
         do {
-          await new Promise((resolve) => setTimeout(resolve, interval));
+          await new Promise<void>((resolve) => {
+            const timeoutId = setTimeout(resolve, interval);
+            clear = () => {
+              clearTimeout(timeoutId);
+              while (queue.length > 0) queue.shift()!("discarded");
+              resolve();
+            };
+          });
           const execute = queue.pop();
           if (!execute) break;
           execute("delayed");
         } while (queue.length > 0);
-        timer = undefined;
+        ready = undefined;
       })();
       return new Promise<R>((resolve) =>
         resolve(fn.call(throttledFn, ...args, "immediate"))
@@ -129,8 +159,11 @@ export const throttle = <const Args extends readonly unknown[], const R>(
     return promise;
   }) as ThrottledFn<Args, R>;
 
+  throttledFn.clear = () => {
+    clear?.();
+  };
   Object.defineProperty(throttledFn, "ready", {
-    get: () => timer,
+    get: () => ready,
   });
 
   return throttledFn;
